@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 #
-# ProFTPd service
+# OpenSSH service
 
 # import DroboApps framework functions
 . /etc/service.subr
