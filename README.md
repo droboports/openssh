@@ -14,8 +14,8 @@ First make sure that you have a working cross-compiling VM. See http://www.drobo
 Log in the VM, pick a temporary folder (e.g., `~/build`), and then do:
 
 ```
-git clone https://github.com/droboports/unrar.git
-cd unrar
+git clone https://github.com/droboports/openssh.git
+cd openssh
 ./build.sh
 ```
 
