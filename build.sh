@@ -25,7 +25,7 @@ exec 2> >(tee -a "${logfile}" >&2)
 source crosscompile.sh
 export NAME="openssh"
 export DEST="/mnt/DroboFS/Shares/DroboApps/${NAME}"
-export DEPS="/mnt/DroboFS/Shares/DroboApps/${NAME}deps"
+export DEPS="${PWD}/target/install"
 export CFLAGS="${CFLAGS:-} -Os -fPIC"
 export CXXFLAGS="${CXXFLAGS:-} ${CFLAGS}"
 export CPPFLAGS="-I${DEPS}/include"

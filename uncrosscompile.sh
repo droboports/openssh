@@ -9,5 +9,6 @@ export -n LDFLAGS
 export -n CC
 export -n CXX
 export -n AR
+export -n AS
 export -n RANLIB
 export -n STRIP
