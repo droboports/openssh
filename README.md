@@ -9,7 +9,7 @@ Check the [releases](https://github.com/droboports/openssh/releases) page. If th
 
 ## How to compile
 
-First make sure that you have a [working cross-compiling VM](https://github.com/droboports/droboports/wiki/Setting-up-a-VM).
+First make sure that you have a [working cross-compiling VM](https://github.com/droboports/droboports.github.io/wiki/Setting-up-a-VM).
 
 Log in the VM, pick a temporary folder (e.g., `~/build`), and then do:
 
