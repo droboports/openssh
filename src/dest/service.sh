@@ -10,7 +10,7 @@ framework_version="2.0"
 
 # app description
 name="openssh"
-version="6.6"
+version="6.7"
 description="SSH server"
 
 # framework-mandated variables
@@ -21,6 +21,7 @@ errorfile="/tmp/DroboApps/${name}/error.txt"
 
 # app-specific variables
 prog_dir="$(dirname $(realpath ${0}))"
+homedir="${prog_dir}/var/empty"
 rsakey="${prog_dir}/etc/ssh_host_rsa_key"
 dsakey="${prog_dir}/etc/ssh_host_dsa_key"
 ecdsakey="${prog_dir}/etc/ssh_host_ecdsa_key"
@@ -33,7 +34,7 @@ set -o pipefail # propagate last error code on pipe
 
 # ensure log folder exists
 logfolder="$(dirname ${logfile})"
-[[ ! -d "${logfolder}" ]] && mkdir -p "${logfolder}"
+if [[ ! -d "${logfolder}" ]]; then mkdir -p "${logfolder}"; fi
 
 # redirect all output to logfile
 exec 3>&1 1>> "${logfile}" 2>&1
@@ -46,36 +47,19 @@ set -o xtrace
 
 _fix_permissions() {
   chmod a+rw /dev/null /dev/full /dev/random /dev/urandom /dev/tty /dev/ptmx /dev/zero /dev/crypto
-  touch /var/log/lastlog
-  [[ ! -f /etc/login.defs ]] && touch /etc/login.defs
+  if [[ ! -f /var/log/lastlog ]]; then touch /var/log/lastlog; fi
+  if [[ ! -f /etc/login.defs ]]; then touch /etc/login.defs; fi
   chmod 4711 "${prog_dir}/libexec/ssh-keysign"
-  chmod -R go-w "${homedir}"
 }
 
 _create_user() {
-  id -g sshd || addgroup -g 50 sshd
-  id -u sshd || adduser -S -H -h "${homedir}" -D -s /bin/false -G sshd -u 50 sshd
-}
-
-_create_config() {
-  local dst
-  for src in "${prog_dir}/etc"/*.default; do
-    dst="${prog_dir}/etc/$(basename ${src} .default)"
-    [[ ! -f "${dst}" ]] && cp -v "${src}" "${dst}"
-  done
-}
-
-_create_keys() {
-  [[ ! -f "${rsakey}" ]] && "${prog_dir}/bin/ssh-keygen" -t rsa -f "${rsakey}" -N ""
-  [[ ! -f "${dsakey}" ]] && "${prog_dir}/bin/ssh-keygen" -t dsa -f "${dsakey}" -N ""
-  [[ ! -f "${ecdsakey}" ]] && "${prog_dir}/bin/ssh-keygen" -t ecdsa -f "${ecdsakey}" -N "" 
+  id -g sshd || addgroup -g 103 sshd
+  id -u sshd || adduser -S -H -h "${homedir}" -D -s /bin/false -G sshd -u 103 sshd
 }
 
 start() {
   _fix_permissions
   _create_user
-  _create_config
-  _create_keys
   "${daemon}"
 }
 
@@ -83,9 +67,10 @@ _service_start() {
   # disable error code and unset variable checks
   set +e
   set +u
-  # /etc/service.subr uses DROBOAPPS without setting it first
-  DROBOAPPS=""
-  # 
+  if _is_running "${pidfile}"; then
+    echo ${name} is already running >&3
+    return 1
+  fi
   start_service
   set -u
   set -e
@@ -96,9 +81,9 @@ _service_stop() {
 }
 
 _service_restart() {
-  service_stop
+  _service_stop
   sleep 3
-  service_start
+  _service_start
 }
 
 _service_status() {

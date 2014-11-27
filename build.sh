@@ -21,9 +21,9 @@ exec 1> >(tee -a "${logfile}")
 # redirect errors to stdout
 exec 2> >(tee -a "${logfile}" >&2)
 
-### environment variables ###
+### environment setup ###
 source crosscompile.sh
-export NAME="openssh"
+export NAME="$(basename ${PWD})"
 export DEST="/mnt/DroboFS/Shares/DroboApps/${NAME}"
 export DEPS="${PWD}/target/install"
 export CFLAGS="${CFLAGS:-} -Os -fPIC"
@@ -32,115 +32,95 @@ export CPPFLAGS="-I${DEPS}/include"
 export LDFLAGS="${LDFLAGS:-} -Wl,-rpath,${DEST}/lib -L${DEST}/lib"
 alias make="make -j8 V=1 VERBOSE=1"
 
+### support functions ###
+# Download a TGZ file and unpack it, removing old files.
 # $1: file
 # $2: url
 # $3: folder
 _download_tgz() {
   [[ ! -f "download/${1}" ]] && wget -O "download/${1}" "${2}"
-  [[ -d "target/${3}" ]] && rm -v -fr "target/${3}"
+  [[ -d "target/${3}" ]] && rm -vfr "target/${3}"
   [[ ! -d "target/${3}" ]] && tar -zxvf "download/${1}" -C target
+  return 0
 }
 
-### ZLIB ###
-_build_zlib() {
-local VERSION="1.2.8"
-local FOLDER="zlib-${VERSION}"
-local FILE="${FOLDER}.tar.gz"
-local URL="http://zlib.net/${FILE}"
-
-_download_tgz "${FILE}" "${URL}" "${FOLDER}"
-pushd target/"${FOLDER}"
-./configure --prefix="${DEPS}" --libdir="${DEST}/lib"
-make
-make install
-rm -v "${DEST}/lib"/*.a
-popd
+# Download a DroboApp and unpack it, removing old files.
+# $1: file
+# $2: url
+# $3: folder
+_download_app() {
+  [[ ! -f "download/${1}" ]] && wget -O "download/${1}" "${2}"
+  [[ -d "target/${3}" ]] && rm -vfr "target/${3}"
+  mkdir -p "target/${3}"
+  tar -zxvf "download/${1}" -C "target/${3}"
+  return 0
 }
 
-### OPENSSL ###
-_build_openssl() {
-local OPENSSL_VERSION="1.0.1i"
-local OPENSSL_FOLDER="openssl-${OPENSSL_VERSION}"
-local OPENSSL_FILE="${OPENSSL_FOLDER}.tar.gz"
-local OPENSSL_URL="http://www.openssl.org/source/${OPENSSL_FILE}"
-
-_download_tgz "${OPENSSL_FILE}" "${OPENSSL_URL}" "${OPENSSL_FOLDER}"
-pushd target/"${OPENSSL_FOLDER}"
-./Configure --prefix="${DEPS}" \
-  --openssldir="${DEST}/etc/ssl" \
-  --with-zlib-include="${DEPS}/include" \
-  --with-zlib-lib="${DEPS}/lib" \
-  shared zlib-dynamic threads linux-armv4 -DL_ENDIAN ${CFLAGS} ${LDFLAGS}
-sed -i -e "s/-O3//g" Makefile
-make -j1
-make install_sw
-mkdir -p "${DEST}"/libexec
-cp -avR "${DEPS}/bin/openssl" "${DEST}/libexec/"
-cp -avR "${DEPS}/lib"/* "${DEST}/lib/"
-rm -fvr "${DEPS}/lib"
-rm -fv "${DEST}/lib"/*.a
-sed -i -e "s|^exec_prefix=.*|exec_prefix=${DEST}|g" "${DEST}"/lib/pkgconfig/openssl.pc
-popd
+# Clone last commit of a single branch from git, removing old files.
+# $1: branch
+# $2: folder
+# $3: url
+_download_git() {
+  [[ -d "target/${2}" ]] && rm -vfr "target/${2}"
+  [[ ! -d "target/${2}" ]] && git clone --branch "${1}" --single-branch --depth 1 "${3}" "target/${2}"
+  return 0
 }
 
-### OPENSSH ###
-_build_openssh() {
-local VERSION="6.6p1"
-local FOLDER="openssh-${VERSION}"
-local FILE="${FOLDER}.tar.gz"
-local URL="http://mirror.switch.ch/ftp/pub/OpenBSD/OpenSSH/portable/${FILE}"
-
-_download_tgz "${FILE}" "${URL}" "${FOLDER}"
-pushd target/"${FOLDER}"
-sed -i -e "s/sshd\.pid/pid.txt/" pathnames.h
-./configure --host=arm-none-linux-gnueabi --prefix="${DEST}" --with-zlib="${DEPS}" --disable-strip --with-ssl-dir="${DEPS}" --with-pid-dir=/tmp/DroboApps/openssh --with-sandbox=rlimit --with-privsep-path="${DEST}/var/empty" --with-privsep-user=sshd select_works_with_rlimit=yes
-make
-make install-nokeys
-popd
+# Download a file, overwriting existing.
+# $1: file
+# $2: url
+_download_file() {
+  [[ ! -f "download/${1}" ]] && wget -O "download/${1}" "${2}"
+  return 0
 }
 
-### BUILD ###
-_build() {
-  _build_zlib
-  _build_openssl
-  _build_openssh
-  _package
+# Download a file in a specific folder, overwriting existing.
+# $1: file
+# $2: url
+# $3: folder
+_download_file_in_folder() {
+  [[ ! -d "download/${3}" ]] && mkdir -p "download/${3}"
+  [[ ! -f "download/${3}/${1}" ]] && wget -O "download/${3}/${1}" "${2}"
+  return 0
 }
 
+# Create the DroboApp tgz file.
 _create_tgz() {
-  local appname="$(basename ${PWD})"
-  local appfile="${PWD}/${appname}.tgz"
+  local FILE="${PWD}/${NAME}.tgz"
 
-  if [[ -f "${appfile}" ]]; then
-    rm -v "${appfile}"
+  if [[ -f "${FILE}" ]]; then
+    rm -v "${FILE}"
   fi
 
   pushd "${DEST}"
-  tar --verbose --create --numeric-owner --owner=0 --group=0 --gzip --file "${appfile}" *
+  tar --verbose --create --numeric-owner --owner=0 --group=0 --gzip --file "${FILE}" *
   popd
 }
 
+# Package the DroboApp
 _package() {
-  mv -v "${DEST}/etc/ssh_config"{,.default} || true
-  mv -v "${DEST}/etc/sshd_config"{,.default} || true
-
-  cp -v -faR src/dest/* "${DEST}"/
-  chmod -R g-w "${DEST}/var/empty"
+  mkdir -p "${DEST}"
+  cp -avfR src/dest/* "${DEST}"/
   find "${DEST}" -name "._*" -print -delete
   _create_tgz
 }
 
+# Remove all compiled files.
 _clean() {
-  rm -v -fr "${DEPS}"
-  rm -v -fr "${DEST}"
-  rm -v -fr target/*
+  rm -vfr "${DEPS}"
+  rm -vfr "${DEST}"
+  rm -vfr target/*
 }
 
+# Removes all files created during the build.
 _dist_clean() {
   _clean
-  rm -v -f logfile*
-  rm -v -fr download/*
+  rm -vf logfile*
+  rm -vfr download/*
 }
+
+### application-specific functions ###
+source app.sh
 
 case "${1:-}" in
   clean)     _clean ;;

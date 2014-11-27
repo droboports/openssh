@@ -2,6 +2,7 @@ export PATH=`echo $PATH | sed "s|$TOOLCHAIN/bin:||g"`
 export -n DROBO
 export -n TOOLCHAIN
 export -n ARCH
+export -n HOST
 export -n CFLAGS
 export -n CXXFLAGS
 export -n CPPFLAGS
