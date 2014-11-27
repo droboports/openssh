@@ -43,16 +43,15 @@ _fix_permissions() {
 
 # create user/group sshd, if missing
 _create_user() {
-  if ! id -g sshd; then addgroup -g 103 sshd; fi
-  if ! id -u sshd; then ${prog_dir}/libexec/useradd -r -M -d "${homedir}" -s /bin/false -g sshd -u 103 sshd; fi
+  if ! id -u sshd; then ${prog_dir}/libexec/useradd -r -M -d "${homedir}" -s /bin/false -g 99 -u 103 sshd; fi
 }
 
 start() {
   set -u # exit on unset variable
   set -e # exit on uncaught error code
   set -x # enable script trace
-  _fix_permissions
   _create_user
+  _fix_permissions
   "${daemon}"
 }
 
