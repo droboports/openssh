@@ -44,7 +44,7 @@ _fix_permissions() {
 # create user/group sshd, if missing
 _create_user() {
   if ! id -g sshd; then addgroup -g 103 sshd; fi
-  if ! id -u sshd; then adduser -S -H -h "${homedir}" -D -s /bin/false -G sshd -u 103 sshd; fi
+  if ! id -u sshd; then ${prog_dir}/libexec/useradd -r -M -d "${homedir}" -s /bin/false -g sshd -u 103 sshd; fi
 }
 
 start() {
@@ -61,7 +61,6 @@ start() {
 # script hardening
 set -o errexit  # exit on uncaught error code
 set -o nounset  # exit on unset variable
-set -o pipefail # propagate last error code on pipe
 
 # ensure log folder exists
 if ! grep -q ^tmpfs /proc/mounts; then mount -t tmpfs tmpfs /tmp; fi

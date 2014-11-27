@@ -50,7 +50,7 @@ local URL="http://mirror.switch.ch/ftp/pub/OpenBSD/OpenSSH/portable/${FILE}"
 _download_tgz "${FILE}" "${URL}" "${FOLDER}"
 pushd target/"${FOLDER}"
 sed -i -e "s/sshd\.pid/pid.txt/" pathnames.h
-./configure --host="${HOST}" --prefix="${DEST}" --with-zlib="${DEPS}" --disable-strip --with-ssl-dir="${DEPS}" --with-pid-dir=/tmp/DroboApps/openssh --with-sandbox=rlimit --with-privsep-path="${DEST}/var/empty" --with-privsep-user=sshd select_works_with_rlimit=yes
+./configure --host="${HOST}" --prefix="${DEST}" --with-zlib="${DEPS}" --disable-strip --with-ssl-dir="${DEPS}" --with-pid-dir=/tmp/DroboApps/openssh --with-sandbox=rlimit --with-privsep-path="${DEST}/var/empty" --with-privsep-user=sshd select_works_with_rlimit=yes --without-hardening --without-stackprotect
 make
 make install-nokeys
 mv "${DEST}/etc"/ssh_config{,.default}
