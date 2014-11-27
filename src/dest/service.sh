@@ -3,7 +3,7 @@
 # OpenSSH service
 
 # import DroboApps framework functions
-. /etc/service.subr
+source /etc/service.subr
 
 # DroboApp framework version
 framework_version="2.0"
@@ -21,11 +21,8 @@ errorfile="/tmp/DroboApps/${name}/error.txt"
 
 # app-specific variables
 prog_dir="$(dirname $(realpath ${0}))"
-homedir="${prog_dir}/var/empty"
-rsakey="${prog_dir}/etc/ssh_host_rsa_key"
-dsakey="${prog_dir}/etc/ssh_host_dsa_key"
-ecdsakey="${prog_dir}/etc/ssh_host_ecdsa_key"
 daemon="${prog_dir}/sbin/sshd"
+homedir="${prog_dir}/var/empty"
 
 # script hardening
 set -o errexit  # exit on uncaught error code
@@ -33,6 +30,7 @@ set -o nounset  # exit on unset variable
 set -o pipefail # propagate last error code on pipe
 
 # ensure log folder exists
+if ! grep -q ^tmpfs /proc/mounts; then mount -t tmpfs tmpfs /tmp; fi
 logfolder="$(dirname ${logfile})"
 if [[ ! -d "${logfolder}" ]]; then mkdir -p "${logfolder}"; fi
 
@@ -53,8 +51,8 @@ _fix_permissions() {
 }
 
 _create_user() {
-  id -g sshd || addgroup -g 103 sshd
-  id -u sshd || adduser -S -H -h "${homedir}" -D -s /bin/false -G sshd -u 103 sshd
+  if ! id -g sshd; then addgroup -g 103 sshd; fi
+  if ! id -u sshd; then adduser -S -H -h "${homedir}" -D -s /bin/false -G sshd -u 103 sshd; fi
 }
 
 start() {
