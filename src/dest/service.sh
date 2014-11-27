@@ -41,18 +41,11 @@ _fix_permissions() {
   chmod 4711 "${prog_dir}/libexec/ssh-keysign"
 }
 
-# create user/group sshd, if missing
-_create_user() {
-  if ! id -g sshd; then addgroup -g 103 sshd; fi
-  if ! id -u sshd; then adduser -S -H -h "${homedir}" -D -s /bin/false -G sshd -u 103 sshd; fi
-}
-
 start() {
   set -u # exit on unset variable
   set -e # exit on uncaught error code
   set -x # enable script trace
   _fix_permissions
-  _create_user
   "${daemon}"
 }
 
