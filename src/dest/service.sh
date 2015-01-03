@@ -37,12 +37,12 @@ _fix_permissions() {
     fi
   done
   if [[ ! -f /var/log/lastlog ]]; then touch /var/log/lastlog; fi
-  if [[ ! -f /etc/login.defs ]]; then touch /etc/login.defs; fi
   chmod 4711 "${prog_dir}/libexec/ssh-keysign"
 }
 
 # create user/group sshd, if missing
 _create_user() {
+  if [[ ! -f /etc/login.defs ]]; then touch /etc/login.defs; fi
   if ! id -u sshd; then ${prog_dir}/libexec/useradd -r -M -d "${homedir}" -s /bin/false -g 99 -u 103 sshd; fi
 }
 
@@ -50,8 +50,8 @@ start() {
   set -u # exit on unset variable
   set -e # exit on uncaught error code
   set -x # enable script trace
-  _create_user
   _fix_permissions
+  _create_user
   "${daemon}"
 }
 
