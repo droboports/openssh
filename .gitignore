@@ -1,11 +1,9 @@
 ### Build directory tree ###
 download/*
 target/*
+origin/*
 logfile*
 *.tgz
-
-### proftpd-admin ###
-www
 
 ### Linux ###
 *~
