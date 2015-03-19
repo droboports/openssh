@@ -3,7 +3,7 @@
 # OpenSSH service
 
 # import DroboApps framework functions
-source /etc/service.subr
+. /etc/service.subr
 
 ### app-specific section
 
@@ -12,7 +12,7 @@ framework_version="2.0"
 
 # app description
 name="openssh"
-version="6.7"
+version="6.8"
 description="SSH server"
 
 # framework-mandated variables
@@ -41,12 +41,44 @@ _fix_permissions() {
   chmod 4711 "${prog_dir}/libexec/ssh-keysign"
 }
 
+# _is_running
+# returns: 0 if app is running, 1 if not running or pidfile does not exist.
+_is_running() {
+  /sbin/start-stop-daemon -K -t -x "${daemon}" -p "${pidfile}" -q
+}
+
+# _is_stopped
+# returns: 0 if stopped, 1 if running.
+_is_stopped() {
+  if _is_running; then
+    return 1;
+  fi
+  return 0;
+}
+
 start() {
   set -u # exit on unset variable
   set -e # exit on uncaught error code
   set -x # enable script trace
   _fix_permissions
   "${daemon}"
+}
+
+# override /etc/service.subrc
+stop_service() {
+  if _is_stopped; then
+    echo ${name} is not running >&3
+    if [[ "${1:-}" == "-f" ]]; then
+      return 0
+    else
+      return 1
+    fi
+  fi
+  /sbin/start-stop-daemon -K -x "${daemon}" -p "${pidfile}" -v
+}
+
+reload_service() {
+  /sbin/start-stop-daemon -K -s HUP -x "${daemon}" -p "${pidfile}" -v
 }
 
 ### common section
@@ -67,17 +99,9 @@ exec 3>&1 1>> "${logfile}" 2>&1
 # log current date, time, and invocation parameters
 echo $(date +"%Y-%m-%d %H-%M-%S"): ${0} ${@}
 
-# _is_running
-# args: path to pid file
-# returns: 0 if pid is running, 1 if not running or if pidfile does not exist.
-_is_running() {
-  /sbin/start-stop-daemon -K -s 0 -x "${daemon}" -p "${pidfile}" -q
-}
-
 _service_start() {
-  if _is_running "${pidfile}"; then
+  if _is_running; then
     echo ${name} is already running >&3
-    set +e
     return 1
   fi
   set +x # disable script trace
@@ -87,12 +111,22 @@ _service_start() {
 }
 
 _service_stop() {
-  if ! /sbin/start-stop-daemon -K -x "${daemon}" -p "${pidfile}" -v; then echo "${name} is not running" >&3; fi
+  stop_service
+}
+
+_service_waitstop() {
+  stop_service -f
+  while ! _is_stopped; do
+    sleep 1
+  done
+}
+
+_service_reload() {
+  reload_service
 }
 
 _service_restart() {
-  _service_stop
-  sleep 3
+  _service_waitstop
   _service_start
 }
 
@@ -101,8 +135,7 @@ _service_status() {
 }
 
 _service_help() {
-  echo "Usage: $0 [start|stop|restart|status]" >&3
-  set +e # disable error code check
+  echo "Usage: $0 [start|stop|waitstop|reload|restart|status]" >&3
   exit 1
 }
 
@@ -110,6 +143,6 @@ _service_help() {
 set -o xtrace
 
 case "${1:-}" in
-  start|stop|restart|status) _service_${1} ;;
+  start|stop|waitstop|reload|restart|status) _service_${1} ;;
   *) _service_help ;;
 esac
