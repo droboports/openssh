@@ -7,8 +7,8 @@
 
 framework_version="2.1"
 name="openssh"
-version="6.8"
-description="SSH server"
+version="7.1"
+description="OpenSSH is a suite of security-related network-level utilities based on the Secure Shell protocol."
 depends=""
 webui=""
 
@@ -21,28 +21,33 @@ logfile="${tmp_dir}/log.txt"
 statusfile="${tmp_dir}/status.txt"
 errorfile="${tmp_dir}/error.txt"
 
-# backwards compatibility
-if [ -z "${FRAMEWORK_VERSION:-}" ]; then
-  . "${prog_dir}/libexec/service.subr"
-fi
+# return 1 if $FRAMEWORK_VERSION < $framework_version
+_check_framework_version() {
+  local _check
+  local rc
+  if [ ! -x /usr/bin/semver.sh ]; then
+    return 1
+  fi
+  _check=$(/usr/bin/semver.sh "${FRAMEWORK_VERSION:-2.0}" "${framework_version}") && rc=$? || rc=$?
+  if [ -z "${_check}" ] || [ "${_check}" = "-1" ]; then
+    return 1
+  fi
+  return 0
+}
 
-# fixes device permisions to enable non-root logins
-_fix_permissions() {
-  local devices="/dev/null /dev/full /dev/random /dev/urandom /dev/tty /dev/ptmx /dev/zero /dev/crypto"
-  for device in ${devices}; do
-    if [ -c "${device}" ]; then
-      if [ "$(stat -c %a ${device})" -ne "666" ]; then
-        chmod a+rw "${device}"
-      fi
-    fi
-  done
-  if [ ! -f "/var/log/lastlog" ]; then touch "/var/log/lastlog"; fi
-  if [ ! -f "/etc/login.defs" ]; then touch "/etc/login.defs"; fi
-  chmod 4711 "${prog_dir}/libexec/ssh-keysign"
+_enforce_framework_version() {
+  rm "${errorfile}" "${statusfile}"
+  if ! _check_framework_version; then
+    echo "$name requires firmware 3.3.0 or newer." > "${statusfile}"
+    echo "1" > "${errorfile}"
+    return 1
+  fi
+  return 0
 }
 
 start() {
-  _fix_permissions
+  _enforce_framework_version
+  chmod 4711 "${prog_dir}/libexec/ssh-keysign"
   "${daemon}"
 }
 
@@ -51,14 +56,12 @@ restart() {
 }
 
 # boilerplate
-if [ ! -d "${tmp_dir}" ]; then mkdir -p "${tmp_dir}"; fi
 exec 3>&1 4>&2 1>> "${logfile}" 2>&1
 STDOUT=">&3"
 STDERR=">&4"
 echo "$(date +"%Y-%m-%d %H-%M-%S"):" "${0}" "${@}"
 set -o errexit  # exit on uncaught error code
 set -o nounset  # exit on unset variable
-set -o pipefail # propagate last error code on pipe
 set -o xtrace   # enable script tracing
 
 main "${@}"
