@@ -21,32 +21,27 @@ logfile="${tmp_dir}/log.txt"
 statusfile="${tmp_dir}/status.txt"
 errorfile="${tmp_dir}/error.txt"
 
-# return 1 if $FRAMEWORK_VERSION < $framework_version
-_check_framework_version() {
-  local _check
+# check firmware version
+_firmware_check() {
   local rc
-  if [ ! -x /usr/bin/semver.sh ]; then
+  local semver
+  rm -f "${statusfile}" "${errorfile}"
+  if [ -z "${FRAMEWORK_VERSION:-}" ]; then
+    echo "Unsupported Drobo firmware, please upgrade to the latest version." > "${statusfile}"
+    echo "4" > "${errorfile}"
     return 1
   fi
-  _check=$(/usr/bin/semver.sh "${FRAMEWORK_VERSION:-2.0}" "${framework_version}") && rc=$? || rc=$?
-  if [ -z "${_check}" ] || [ "${_check}" = "-1" ]; then
-    return 1
-  fi
-  return 0
-}
-
-_enforce_framework_version() {
-  rm "${errorfile}" "${statusfile}"
-  if ! _check_framework_version; then
-    echo "$name requires firmware 3.3.0 or newer." > "${statusfile}"
-    echo "1" > "${errorfile}"
+  semver="$(/usr/bin/semver.sh "${framework_version}" "${FRAMEWORK_VERSION}")"
+  if [ "${semver}" == "1" ]; then
+    echo "Unsupported Drobo firmware, please upgrade to the latest version." > "${statusfile}"
+    echo "4" > "${errorfile}"
     return 1
   fi
   return 0
 }
 
 start() {
-  _enforce_framework_version
+  _firmware_check
   chmod 4711 "${prog_dir}/libexec/ssh-keysign"
   "${daemon}"
 }
