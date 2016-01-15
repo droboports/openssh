@@ -16,35 +16,38 @@ popd
 
 ### OPENSSL ###
 _build_openssl() {
-local VERSION="1.0.2a"
+local VERSION="1.0.2e"
 local FOLDER="openssl-${VERSION}"
 local FILE="${FOLDER}.tar.gz"
-local URL="http://www.openssl.org/source/${FILE}"
+local URL="http://mirror.switch.ch/ftp/mirror/openssl/source/${FILE}"
 
 _download_tgz "${FILE}" "${URL}" "${FOLDER}"
 cp -vf "src/${FOLDER}-parallel-build.patch" "target/${FOLDER}/"
 pushd "target/${FOLDER}"
-patch -p1 < "${FOLDER}-parallel-build.patch"
-./Configure --prefix="${DEPS}" \
-  --openssldir="${DEST}/etc/ssl" \
-  --with-zlib-include="${DEPS}/include" \
-  --with-zlib-lib="${DEPS}/lib" \
-  shared zlib-dynamic threads linux-armv4 no-asm -DL_ENDIAN ${CFLAGS} ${LDFLAGS}
+patch -p1 -i "${FOLDER}-parallel-build.patch"
+./Configure --prefix="${DEPS}" --openssldir="${DEST}/etc/ssl" \
+  zlib-dynamic --with-zlib-include="${DEPS}/include" --with-zlib-lib="${DEPS}/lib" \
+  shared threads linux-armv4 no-ssl2 no-ssl3 -DL_ENDIAN ${CFLAGS} ${LDFLAGS} \
+  -Wa,--noexecstack -Wl,-z,noexecstack \
+  no-asm
 sed -i -e "s/-O3//g" Makefile
 make
 make install_sw
 mkdir -p "${DEST}/libexec"
-cp -avR "${DEPS}/bin/openssl" "${DEST}/libexec/"
-cp -avR "${DEPS}/lib"/* "${DEST}/lib/"
-rm -vfr "${DEPS}/lib"
-rm -vf "${DEST}/lib"/*.a
-sed -i -e "s|^exec_prefix=.*|exec_prefix=${DEST}|g" "${DEST}/lib/pkgconfig/openssl.pc"
+cp -vfa "${DEPS}/bin/openssl" "${DEST}/libexec/"
+cp -vfa "${DEPS}/lib/libssl.so"* "${DEST}/lib/"
+cp -vfa "${DEPS}/lib/libcrypto.so"* "${DEST}/lib/"
+cp -vfaR "${DEPS}/lib/engines" "${DEST}/lib/"
+cp -vfaR "${DEPS}/lib/pkgconfig" "${DEST}/lib/"
+rm -vf "${DEPS}/lib/libcrypto.a" "${DEPS}/lib/libssl.a"
+sed -e "s|^libdir=.*|libdir=${DEST}/lib|g" -i "${DEST}/lib/pkgconfig/libcrypto.pc"
+sed -e "s|^libdir=.*|libdir=${DEST}/lib|g" -i "${DEST}/lib/pkgconfig/libssl.pc"
 popd
 }
 
 ### OPENSSH ###
 _build_openssh() {
-local VERSION="6.8p1"
+local VERSION="7.1p2"
 local FOLDER="openssh-${VERSION}"
 local FILE="${FOLDER}.tar.gz"
 local URL="http://mirror.switch.ch/ftp/pub/OpenBSD/OpenSSH/portable/${FILE}"
@@ -52,7 +55,12 @@ local URL="http://mirror.switch.ch/ftp/pub/OpenBSD/OpenSSH/portable/${FILE}"
 _download_tgz "${FILE}" "${URL}" "${FOLDER}"
 pushd "target/${FOLDER}"
 sed -i -e "s/sshd\.pid/pid.txt/" pathnames.h
-./configure --host="${HOST}" --prefix="${DEST}" --with-zlib="${DEPS}" --disable-strip --with-ssl-dir="${DEPS}" --with-pid-dir=/tmp/DroboApps/openssh --with-sandbox=rlimit --with-privsep-path="${DEST}/var/empty" --with-privsep-user=sshd select_works_with_rlimit=yes --without-hardening --without-stackprotect
+./configure --host="${HOST}" --prefix="${DEST}" --disable-strip \
+  --with-zlib="${DEPS}" --with-ssl-dir="${DEPS}" \
+  --with-pid-dir=/tmp/DroboApps/openssh --with-privsep-path="${DEST}/var/empty" \
+  --with-privsep-user=sshd \
+  --with-sandbox=rlimit select_works_with_rlimit=yes \
+  --without-hardening --without-stackprotect
 make
 make install-nokeys
 mv "${DEST}/etc"/ssh_config{,.default}
