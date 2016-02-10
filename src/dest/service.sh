@@ -69,11 +69,11 @@ _service_start() {
 }
 
 _service_stop() {
-  start-stop-daemon -K -x "${daemon}" -p "${pidfile}" -v || echo "${name} is not running" >&3
+  /sbin/start-stop-daemon -K -x "${daemon}" -p "${pidfile}" -v || echo "${name} is not running" >&3
 }
 
 _service_restart() {
-  start-stop-daemon -K -s HUP -x "${daemon}" -p "${pidfile}" -v
+  /sbin/start-stop-daemon -K -s HUP -x "${daemon}" -p "${pidfile}" -v
 }
 
 _service_status() {
